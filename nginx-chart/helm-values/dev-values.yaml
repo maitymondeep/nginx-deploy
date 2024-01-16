@@ -1,0 +1,22 @@
+global:
+  projectName: nginx
+  env: "dev"
+
+## If you want to enable HPA
+k8sObjectsEnabled:
+  hpa: false ## Disabled HPA in Dev env which can be used for development only and can save cost, enabled HPA in [QA --> Prod]
+
+replicaCount: 2
+
+#+++++++++++++++++++++++++++++++++Developer Use++++++++++++++++++++++++++++++++++#
+configMap:
+  data:
+  nginx.conf: |
+    server {
+      server_name localhost;
+      location / {
+        default_type text/plain;
+        set $server_ip $server_addr;
+        return 200 "server_ip: $server_ip";
+      }
+    }

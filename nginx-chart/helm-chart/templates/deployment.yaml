@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    env: {{ .Values.global.env }}
+    product: {{ .Values.global.projectName | lower }}
+    app: {{ .Release.Name }}
+spec:
+  {{- if not .Values.k8sObjectsEnabled.hpa }}
+  replicas: {{ .Values.replicaCount | default 1 }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+      env: {{ .Values.global.env }}
+      product: {{ .Values.global.projectName | lower }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: {{ .Values.rollingUpdateStrategy.maxSurge | quote }}
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        env: {{ .Values.global.env }}
+        product: {{ .Values.global.projectName | lower }}
+        app: {{ .Release.Name }}
+        {{- if .Values.pod.extraLabels }}
+        {{- toYaml .Values.pod.extraLabels | nindent 8 }}
+        {{- end }}
+      annotations:
+        ## This trick will restart the pod incase of any ConfigMap changes
+        prometheus.io/port: "8080"
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+    spec:
+      imagePullSecrets:
+        - name: image-pull-secret
+      hostname: {{ .Release.Name }}
+      volumes:
+      - emptyDir: {}
+        name: tmp-volume
+      - name: nginx-config
+        configMap:
+          name: {{ .Release.Name }}-configmap
+      containers:
+        - name: {{ .Release.Name }}
+          image: "nginx:latest"
+          volumeMounts:
+          - mountPath: /tmp
+            name: tmp-volume
+          - name: nginx-config
+            mountPath: /etc/nginx/conf.d
+            readOnly: true
+          resources:
+            requests:
+              cpu: {{ .Values.requests.cpu | quote }}
+              memory: {{ .Values.requests.memory | quote }}
+            limits:
+              cpu: {{ .Values.limits.cpu | quote }}
+              memory: {{ .Values.limits.memory | quote }}
+          # readinessProbe:
+          #   httpGet:
+          #     path: {{ .Values.readinessProbe.path | quote }}
+          #     port: {{ .Values.containerPort | int }}
+          #   initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds | int }}
+          # livenessProbe:
+          #   httpGet:
+          #     path: {{ .Values.livenessProbe.path | quote }}
+          #     port: {{ .Values.containerPort | int }}
+          #   initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds | int }}
+          ports:
+            - containerPort: {{ .Values.containerPort | int }}
+          env:
+            - name: ENV_NAME
+              value: {{ .Values.global.env }}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: server_ip
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          envFrom:
+            - configMapRef:
+                name: {{ .Release.Name }}-configmap
