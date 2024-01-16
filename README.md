@@ -5,3 +5,6 @@
 3. This terraform repo will deploy Prometheus and Grafana deployment as well.
 
 Also, I have modified some helm chart where my nginx is working properly along with EFK and Grafana-Prom chart. Added the helm charts to this repo as well.
+
+## Attached Screenshot
+![](./image/resource.png)
